@@ -34,10 +34,18 @@ LOCATIONS = [
     "г. Верхняя Пышма, ул. Уральских Рабочих, 45а"
 ]
 
+COURSES = [
+    ("Scratch - визуальный язык программирования.", "presentation/presentation_scratch.pdf"),
+    ("Python Start - 1 год.", "presentation/presentation_scratch.pdf"),
+    ("Roblox - геймдизайн.", "presentation/presentation_scratch.pdf"),
+    ("Unity - создание 3D игр.", "presentation/presentation_scratch.pdf")
+]
+
 def start(update: Update, context: CallbackContext) -> None:
     keyboard = [
         [InlineKeyboardButton("Записаться на бесплатное пробное занятие", callback_data='signup')],
-        [InlineKeyboardButton("Локации Алгоритмики", callback_data='locations')]
+        [InlineKeyboardButton("Локации Алгоритмики", callback_data='locations')],
+        [InlineKeyboardButton("Наши курсы", callback_data='courses')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text(WELCOME_MESSAGE, reply_markup=reply_markup)
@@ -66,33 +74,34 @@ def button(update: Update, context: CallbackContext) -> None:
     query.answer()
 
     if query.data == 'signup':
-        # Отправляем изображение
         query.message.reply_photo(photo=open('images/trial_lesson.png', 'rb'))
-
-        # Отправляем сообщение с просьбой указать ФИО и номер телефона
         query.message.reply_text(
             'Бесплатное пробное занятие — это возможность познакомиться с нашими услугами.\n\n'
             'Пожалуйста, укажите Ваше ФИО и номер телефона в формате: ФИО, Номер телефона'
         )
     elif query.data == 'locations':
-        # Отправляем изображение
         query.message.reply_photo(photo=open('images/locations.jpg', 'rb'))
-
-        # Создаем кнопки с адресами
         keyboard = [[InlineKeyboardButton(location, callback_data=f'location_{i}')] for i, location in enumerate(LOCATIONS)]
         reply_markup = InlineKeyboardMarkup(keyboard)
         query.message.reply_text('Выберите локацию:', reply_markup=reply_markup)
     elif query.data.startswith('location_'):
-        # Получаем индекс выбранной локации
         index = int(query.data.split('_')[1])
         location = LOCATIONS[index]
-
-        # Предлагаем записаться на пробное занятие
         query.message.reply_text(
             f'Вы выбрали локацию: {location}\n\n'
             'Бесплатное пробное занятие — это возможность познакомиться с нашими услугами.\n\n'
             'Пожалуйста, укажите Ваше ФИО и номер телефона в формате: ФИО, Номер телефона'
         )
+    elif query.data == 'courses':
+        query.message.reply_photo(photo=open('images/courses.jpg', 'rb'))
+        keyboard = [[InlineKeyboardButton(course[0], callback_data=f'course_{i}')] for i, course in enumerate(COURSES)]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        query.message.reply_text('Выберите курс:', reply_markup=reply_markup)
+    elif query.data.startswith('course_'):
+        index = int(query.data.split('_')[1])
+        course = COURSES[index]
+        with open(course[1], 'rb') as presentation:
+            query.message.reply_document(document=presentation)
     else:
         query.message.reply_text('Неизвестное действие.')
 
