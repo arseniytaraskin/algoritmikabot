@@ -1,4 +1,4 @@
-from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, CallbackQueryHandler
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
@@ -25,15 +25,28 @@ WELCOME_MESSAGE = (
     "Выберите действие:"
 )
 
+LOCATIONS = [
+    "ул. Уральская, 59",
+    "ул. Совхозная, 2",
+    "ул. Кировградская, 11",
+    "ул. Сони Морозовой, 190",
+    "ул. Сыромолотова, 14",
+    "г. Верхняя Пышма, ул. Уральских Рабочих, 45а"
+]
+
 def start(update: Update, context: CallbackContext) -> None:
     keyboard = [
-        [InlineKeyboardButton("Записаться на бесплатное пробное занятие", callback_data='signup')]
+        [InlineKeyboardButton("Записаться на бесплатное пробное занятие", callback_data='signup')],
+        [InlineKeyboardButton("Локации Алгоритмики", callback_data='locations')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text(WELCOME_MESSAGE, reply_markup=reply_markup)
 
 def handle_message(update: Update, context: CallbackContext) -> None:
     text = update.message.text
+    user = update.message.from_user
+    username = user.username if user.username else 'Не указан'
+
     if text == 'Записаться на бесплатное пробное занятие':
         update.message.reply_text(
             'Бесплатное пробное занятие — это возможность познакомиться с нашими услугами.\n\n'
@@ -43,19 +56,40 @@ def handle_message(update: Update, context: CallbackContext) -> None:
         user_input = text.split(', ')
         if len(user_input) == 2:
             name, phone = user_input
-            sheet.append_row([name, phone])
+            sheet.append_row([name, phone, username])
             update.message.reply_text('Спасибо за заявку! Мы свяжемся с вами.')
         else:
             update.message.reply_text('Пожалуйста, укажите ФИО и номер телефона в формате: ФИО, Номер телефона')
 
 def button(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
+    query.answer()
+
     if query.data == 'signup':
         # Отправляем изображение
         query.message.reply_photo(photo=open('images/trial_lesson.png', 'rb'))
 
         # Отправляем сообщение с просьбой указать ФИО и номер телефона
         query.message.reply_text(
+            'Бесплатное пробное занятие — это возможность познакомиться с нашими услугами.\n\n'
+            'Пожалуйста, укажите Ваше ФИО и номер телефона в формате: ФИО, Номер телефона'
+        )
+    elif query.data == 'locations':
+        # Отправляем изображение
+        query.message.reply_photo(photo=open('images/locations.jpg', 'rb'))
+
+        # Создаем кнопки с адресами
+        keyboard = [[InlineKeyboardButton(location, callback_data=f'location_{i}')] for i, location in enumerate(LOCATIONS)]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        query.message.reply_text('Выберите локацию:', reply_markup=reply_markup)
+    elif query.data.startswith('location_'):
+        # Получаем индекс выбранной локации
+        index = int(query.data.split('_')[1])
+        location = LOCATIONS[index]
+
+        # Предлагаем записаться на пробное занятие
+        query.message.reply_text(
+            f'Вы выбрали локацию: {location}\n\n'
             'Бесплатное пробное занятие — это возможность познакомиться с нашими услугами.\n\n'
             'Пожалуйста, укажите Ваше ФИО и номер телефона в формате: ФИО, Номер телефона'
         )
