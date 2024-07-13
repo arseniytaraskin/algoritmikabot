@@ -2,6 +2,7 @@ from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, InputMe
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, CallbackQueryHandler
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+import texts  # Импортируем наш новый модуль с текстами
 
 # Установите токен вашего бота
 TOKEN = '7306744515:AAFX6M9WE0GfPf-kfG4Q9qjQMdT1mJIbPiU'
@@ -18,13 +19,6 @@ creds = ServiceAccountCredentials.from_json_keyfile_name(CREDENTIALS_FILE, scope
 client = gspread.authorize(creds)
 sheet = client.open_by_key(SHEET_ID).sheet1
 
-# Приветственное сообщение с встроенной клавиатурой
-WELCOME_MESSAGE = (
-    "Вас приветствует международная школа программирования и математики Алгоритмика для детей 6-14 лет в Екатеринбурге и Свердловской области 🧑‍💻\n\n"
-    "Учитесь в школе международного уровня и создайте успешное будущее своему ребёнку вместе с IT-навыками от Алгоритмики 🚀\n\n"
-    "Выберите действие:"
-)
-
 LOCATIONS = [
     "ул. Уральская, 59",
     "ул. Совхозная, 2",
@@ -35,31 +29,35 @@ LOCATIONS = [
 ]
 
 COURSES = [
-    ("Scratch - визуальный язык программирования.", "presentation/presentation_scratch.pdf"),
-    ("Python Start - 1 год.", "presentation/presentation_scratch.pdf"),
-    ("Roblox - геймдизайн.", "presentation/presentation_scratch.pdf"),
-    ("Unity - создание 3D игр.", "presentation/presentation_scratch.pdf")
+    ("Scratch - визуальный язык программирования.", "presentation_scratch.pdf"),
+    ("Python Start - 1 год.", "presentation_python_start.pdf"),
+    ("Roblox - геймдизайн.", "presentation_roblox.pdf"),
+    ("Unity - создание 3D игр.", "presentation_unity.pdf")
 ]
 
 def start(update: Update, context: CallbackContext) -> None:
     keyboard = [
         [InlineKeyboardButton("Записаться на бесплатное пробное занятие", callback_data='signup')],
         [InlineKeyboardButton("Локации Алгоритмики", callback_data='locations')],
-        [InlineKeyboardButton("Наши курсы", callback_data='courses')]
+        [InlineKeyboardButton("Наши курсы", callback_data='courses')],
+        [InlineKeyboardButton("Нейросмена 2.0", callback_data='neurosmena')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text(WELCOME_MESSAGE, reply_markup=reply_markup)
+    update.message.reply_text(texts.WELCOME_MESSAGE, reply_markup=reply_markup)
 
 def handle_message(update: Update, context: CallbackContext) -> None:
     text = update.message.text
     user = update.message.from_user
     username = user.username if user.username else 'Не указан'
-
-    if text == 'Записаться на бесплатное пробное занятие':
-        update.message.reply_text(
-            'Бесплатное пробное занятие — это возможность познакомиться с нашими услугами.\n\n'
-            'Пожалуйста, укажите Ваше ФИО и номер телефона в формате: ФИО, Номер телефона'
-        )
+    if context.user_data.get('signup_type') == 'neurosmena':
+        user_input = text.split(', ')
+        if len(user_input) == 2:
+            name, phone = user_input
+            sheet.append_row([name, phone, username, 'Нейросмена 2.0'])
+            update.message.reply_text('Спасибо за заявку на нейросмену 2.0! Мы свяжемся с вами.')
+            context.user_data['signup_type'] = None
+        else:
+            update.message.reply_text('Пожалуйста, укажите ФИО и номер телефона в формате: ФИО, Номер телефона')
     else:
         user_input = text.split(', ')
         if len(user_input) == 2:
@@ -80,7 +78,7 @@ def button(update: Update, context: CallbackContext) -> None:
             'Пожалуйста, укажите Ваше ФИО и номер телефона в формате: ФИО, Номер телефона'
         )
     elif query.data == 'locations':
-        query.message.reply_photo(photo=open('images/locations.jpg', 'rb'))
+        query.message.reply_photo(photo=open('images/locations.png', 'rb'))
         keyboard = [[InlineKeyboardButton(location, callback_data=f'location_{i}')] for i, location in enumerate(LOCATIONS)]
         reply_markup = InlineKeyboardMarkup(keyboard)
         query.message.reply_text('Выберите локацию:', reply_markup=reply_markup)
@@ -93,7 +91,7 @@ def button(update: Update, context: CallbackContext) -> None:
             'Пожалуйста, укажите Ваше ФИО и номер телефона в формате: ФИО, Номер телефона'
         )
     elif query.data == 'courses':
-        query.message.reply_photo(photo=open('images/courses.jpg', 'rb'))
+        query.message.reply_photo(photo=open('images/courses.png', 'rb'))
         keyboard = [[InlineKeyboardButton(course[0], callback_data=f'course_{i}')] for i, course in enumerate(COURSES)]
         reply_markup = InlineKeyboardMarkup(keyboard)
         query.message.reply_text('Выберите курс:', reply_markup=reply_markup)
@@ -102,6 +100,9 @@ def button(update: Update, context: CallbackContext) -> None:
         course = COURSES[index]
         with open(course[1], 'rb') as presentation:
             query.message.reply_document(document=presentation)
+    elif query.data == 'neurosmena':
+        query.message.reply_text(texts.NEUROSMENA_TEXT)
+        context.user_data['signup_type'] = 'neurosmena'
     else:
         query.message.reply_text('Неизвестное действие.')
 
