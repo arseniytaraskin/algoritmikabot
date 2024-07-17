@@ -2,18 +2,13 @@ from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, CallbackQueryHandler
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-import texts  # Импортируем наш новый модуль с текстами
+import texts
+from datetime import datetime
 
-# Установите токен вашего бота
 TOKEN = '7306744515:AAFX6M9WE0GfPf-kfG4Q9qjQMdT1mJIbPiU'
-
-# ID вашей таблицы
 SHEET_ID = '1DXp2zvhf8JEGSBf3HrnP-RFwiHvKuUh4FsFtWh3MLNY'
-
-# Установите путь к вашему JSON файлу с учетными данными
 CREDENTIALS_FILE = 'algoritmika-429013-6b635be7ceac.json'
 
-# Настройка подключения к Google Таблицам
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 creds = ServiceAccountCredentials.from_json_keyfile_name(CREDENTIALS_FILE, scope)
 client = gspread.authorize(creds)
@@ -61,38 +56,31 @@ def handle_message(update: Update, context: CallbackContext) -> None:
     text = update.message.text
     user = update.message.from_user
     username = user.username if user.username else 'Не указан'
-
     signup_type = context.user_data.get('signup_type')
+    location = context.user_data.get('selected_location', 'Не указано')
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    if signup_type == 'neurosmena':
-        user_input = text.split(', ')
-        if len(user_input) == 2:
-            name, phone = user_input
-            sheet.append_row([name, phone, username, 'Нейросмена 2.0'])
+    user_input = text.split(maxsplit=1)
+    if len(user_input) == 2:
+        name, phone = user_input
+        if signup_type == 'neurosmena':
+            sheet.append_row([name, phone, username, 'Нейросмена 2.0', timestamp])
             update.message.reply_text('Спасибо за заявку на нейросмену 2.0! Мы свяжемся с вами.')
-            context.user_data['signup_type'] = None
-            show_main_menu(update, context)
-        else:
-            update.message.reply_text('Пожалуйста, укажите ФИО и номер телефона в формате: ФИО, Номер телефона')
-    elif signup_type == 'contact_manager':
-        user_input = text.split(', ')
-        if len(user_input) == 2:
-            name, phone = user_input
-            sheet.append_row([name, phone, username, 'Связь с менеджером'])
+        elif signup_type == 'contact_manager':
+            sheet.append_row([name, phone, username, 'Связь с менеджером', timestamp])
             update.message.reply_text('Спасибо! Мы свяжемся с вами по указанным контактным данным.')
-            context.user_data['signup_type'] = None
-            show_main_menu(update, context)
+        elif signup_type == 'location':
+            sheet.append_row([name, phone, username, location, timestamp])
+            update.message.reply_text(f'Спасибо за заявку! Мы свяжемся с вами. Локация: {location}')
         else:
-            update.message.reply_text('Пожалуйста, укажите ФИО и номер телефона в формате: ФИО, Номер телефона')
-    else:
-        user_input = text.split(', ')
-        if len(user_input) == 2:
-            name, phone = user_input
-            sheet.append_row([name, phone, username])
+            sheet.append_row([name, phone, username, 'Общая заявка', timestamp])
             update.message.reply_text('Спасибо за заявку! Мы свяжемся с вами.')
-            show_main_menu(update, context)
-        else:
-            update.message.reply_text('Пожалуйста, укажите ФИО и номер телефона в формате: ФИО, Номер телефона')
+
+        context.user_data['signup_type'] = None
+        context.user_data['selected_location'] = None
+        show_main_menu(update, context)
+    else:
+        update.message.reply_text('Пожалуйста, укажите ФИО и номер телефона в формате: ФИО Номер телефона')
 
 def button(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
@@ -104,7 +92,7 @@ def button(update: Update, context: CallbackContext) -> None:
         context.bot.send_message(
             chat_id=chat_id,
             text='Бесплатное пробное занятие — это возможность познакомиться с нашими услугами.\n\n'
-                 'Пожалуйста, укажите Ваше ФИО и номер телефона в формате: ФИО, Номер телефона'
+                 'Пожалуйста, укажите Ваше ФИО и номер телефона в формате: ФИО Номер телефона'
         )
     elif query.data == 'locations':
         context.bot.send_photo(chat_id=chat_id, photo=open('images/locations.jpg', 'rb'))
@@ -115,11 +103,13 @@ def button(update: Update, context: CallbackContext) -> None:
     elif query.data.startswith('location_'):
         index = int(query.data.split('_')[1])
         location = LOCATIONS[index]
+        context.user_data['selected_location'] = location
+        context.user_data['signup_type'] = 'location'
         context.bot.send_message(
             chat_id=chat_id,
             text=f'Вы выбрали локацию: {location}\n\n'
                  'Бесплатное пробное занятие — это возможность познакомиться с нашими услугами.\n\n'
-                 'Пожалуйста, укажите Ваше ФИО и номер телефона в формате: ФИО, Номер телефона'
+                 'Пожалуйста, укажите Ваше ФИО и номер телефона в формате: ФИО Номер телефона'
         )
     elif query.data == 'courses':
         context.bot.send_photo(chat_id=chat_id, photo=open('images/courses.jpg', 'rb'))
